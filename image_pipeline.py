@@ -514,7 +514,8 @@ class FindLinesSlidingWindows(Operation):
         length_of_center_of_lanes = (self.right_fitx[len(self.ploty)-1] - self.left_fitx[len(self.ploty)-1])/2
         distance_to_center_of_lanes = length_of_center_of_lanes + self.left_fitx[len(self.ploty)-1]
         self.distance_to_center = distance_to_center_of_lanes - (binary_warped.shape[1]/2)
-        self.distance_to_center_m = self.distance_to_center * self.xm_per_pix        
+        self.distance_to_center_m = self.distance_to_center * self.xm_per_pix
+
         return binary_warped
     
 class Annotate(Operation):
@@ -650,8 +651,11 @@ class ImagePipeline(object):
                 img = cv2.drawChessboardCorners(img, (cols,rows), corners, ret)
                 i+=1
 
-        ret, self.mtx, self.dist, rvecs, tvecs = \
-          cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+        if i > 0:
+            ret, self.mtx, self.dist, rvecs, tvecs = \
+              cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+        else:
+            raise ValueError("No calibration image found at given image paths");
     
     def set_perspective(self, src, dst):
         self.M = cv2.getPerspectiveTransform(src, dst)
@@ -682,14 +686,19 @@ class ImagePipeline(object):
 
         for o in self.operations:
             if o.type == TYPE_THRESHOLD:
+                # Process the image processed in the previous step,
+                # then append it to a list of images.
                 res = o.process(img)
                 imgs.append(res)
                 o.img = np.copy(res)
             elif o.type == TYPE_AGGREGATOR:
+                # Combine a list of images together.
                 img = o.process(imgs)
                 o.img = np.copy(img)
                 res = img
             elif o.type == TYPE_LINEAR:
+                # Process the image processed in the previous step,
+                # return an image.
                 img = o.process(img)
                 o.img = np.copy(img)
                 res = img
